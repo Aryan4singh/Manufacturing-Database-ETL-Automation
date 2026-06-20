@@ -36,7 +36,7 @@ I organized this repository into clean, functional scripts that follow standard 
 ├── assets/
 │   └── erd.png                         <-- Database ER Diagram image
 ├── data/
-│   └── raw_data.csv                    <-- The uncleaned legacy spreadsheet dataset
+│   └── raw_factory_data.csv                    <-- The uncleaned legacy spreadsheet dataset
 ├── sql_scripts/
 │   ├── 1_schema_creation.sql           <-- Table structures, data types, and hard constraints
 │   ├── 2_data_cleaning_etl.sql         <-- Data profiling, text standardization, and prep scripts
