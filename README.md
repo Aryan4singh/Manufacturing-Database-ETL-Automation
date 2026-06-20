@@ -1,65 +1,60 @@
-# Manufacturing Database: End-to-End ETL, Relational Migration & Automation Pipeline
+# Manufacturing Data Warehouse: End-to-End ETL & Relational Migration
 
 ## 📌 Project Overview
-This project addresses a critical real-world manufacturing challenge: transitioning an expanding industrial plant from a fragmented, error-prone ecosystem of Excel spreadsheets to a centralized relational database system. 
+I built this project to solve a messy, real-world operational challenge: migrating an expanding manufacturing plant away from disconnected Excel sheets and into a centralized relational database. 
 
-As a **Data Analyst Portfolio Project**, this demonstrates an end-to-end data pipeline lifecycle: ingesting dirty staging data, modeling a normalized relational schema, writing complex multi-table transformation scripts, and implementing automated database triggers to guarantee operational business logic.
+### The Problem I Solved
+The factory was using standalone spreadsheets to track everything from inventory and supplier details to machine schedules. This created major operational headaches:
+* **Traceability Issues:** There were no unique IDs for raw material batches, making it impossible to track defects back to a specific supplier.
+* **Scheduling Overlaps:** Because the data was disconnected, production lines were frequently double-booked on machines that were actually down for maintenance.
+* **Messy Data Entries:** Data quality was highly inconsistent. For example, text fields mixed metric variants like `Kg`, `KG`, and `Kilogram`, or naming variations like `SS-304` and `Stainless 304`.
 
-### The Business Challenge
-The factory produces machinery components but was severely bottlenecked by data managed in standalone spreadsheets, resulting in:
-* **Traceability Deficits:** No guaranteed unique identifiers for material batches, making root-cause defect tracking impossible.
-* **Scheduling Anomalies:** Zero transactional links between assets, leading to scheduling line production runs on machines currently down for maintenance.
-* **Dirty Structural Entries:** High data variance across rows (e.g., mixing metric variants like `Kg`, `KG`, and `Kilogram`, or naming variants like `SS-304` vs `Stainless 304`).
+**My Solution:** I designed a normalized relational database in SQL Server (T-SQL) from scratch, wrote an ETL pipeline to clean and migrate the legacy spreadsheet rows, and added automated database logic to prevent future scheduling or stock errors.
 
 ---
 
-## 📊 Database Architecture & Data Modeling
-The system transitions raw spreadsheet data into a highly normalized schema. This layout isolates structural dimensions (Masters) from high-velocity transactional tables (Facts), protecting data integrity across workflows.
+## 📊 Database Architecture & Design
+I transformed the unstructured spreadsheet rows into a highly normalized relational schema. My design focuses on isolating master dimensions (Suppliers, Customers, Employees, Machines) from the high-velocity transactional records (Production, Inventory, Quality Checks).
 
 ### Entity-Relationship Diagram (ERD)
-The database structure establishes clear primary/foreign key connections to capture the physical reality of the plant floor:
+Here is how I structured the database tables and mapped out their primary and foreign key connections:
 
 ![Manufacturing Database ERD](assets/erd.png)
 
-### Architectural Highlights:
-* **The Analytics Hub (`PRODUCTIONORDERS`):** Acts as the central transactional hub, linking customer demands directly to machine assets, timelines, and operational statuses.
-* **Many-to-Many Resolution (`PRODUCTIONMATERIALUSAGE`):** Resolves the complex relationship between production runs and specific material inventory batches, allowing granular tracking of exact component compositions.
-* **Inventory Isolation:** Decouples `RAWMATERIALS` (the specifications, like grade) from `MATERIALINVENTORY` (the physical instance of a batch), enabling multi-vendor sourcing of identical materials.
+### Key Structural Decisions I Made:
+* **Centralizing Production (`PRODUCTIONORDERS`):** This serves as the main transactional hub, linking customer orders directly to specific machine assets, active timelines, and production statuses.
+* **Handling Many-to-Many Relationships (`PRODUCTIONMATERIALUSAGE`):** I created this bridge table to link specific production runs to exact raw material batches, enabling granular, end-to-end component traceability.
+* **Inventory Decoupling:** I separated raw material *specifications* (`RAWMATERIALS`) from physical *stock batches* (`MATERIALINVENTORY`), which allows the factory to buy the same type of material from multiple suppliers seamlessly.
 
 ---
 
-## 📂 Repository Structure
-To mirror enterprise development workflows, the production script is modularized into distinct execution phases:
+## 📂 Repository File Structure
+I organized this repository into clean, functional scripts that follow standard database development practices:
 
 ```text
-├── README.md               
-│
-├── assets/                 
-│   └── erd.png            
-│
-├── data/                   
-│   └── raw_factory_data.csv        
-│
-├── sql_scripts/            
-│   ├── 1_schema_creation.sql
-│   ├── 2_data_cleaning_etl.sql
-│   ├── 3_data_migration.sql
-│   └── 4_business_automation.sql
-│
-└── complete_implementation/  
-    └── end_to_end_project.sql 
-
+├── README.md                           <-- Project overview and documentation
+├── assets/
+│   └── erd.png                         <-- Database ER Diagram image
+├── data/
+│   └── raw_data.csv                    <-- The uncleaned legacy spreadsheet dataset
+├── sql_scripts/
+│   ├── 1_schema_creation.sql           <-- Table structures, data types, and hard constraints
+│   ├── 2_data_cleaning_etl.sql         <-- Data profiling, text standardization, and prep scripts
+│   ├── 3_data_migration.sql            <-- Multi-table JOIN mappings and data ingestion
+│   └── 4_business_automation.sql       <-- Database triggers and automated validation logic
+└── complete_implementation/
+    └── end_to_end_project.sql          <-- My entire, end-to-end original deployment script
 ```
 
 ---
 
-## 🛠️ Deep Dive: Code Implementation Showcase
+## 🛠️ Code Deep Dive & Practical Examples
 
-### 1. Data Cleaning & Transformation (ETL Phase)
-Data analysts spend the majority of their time cleaning data. This phase showcases T-SQL string profiling, trimming structural whitespace, handling messy customer entry data, and standardizing categorical strings into deterministic dimensions:
+### 1. Data Cleaning & Standardization (ETL Phase)
+Since data analysts spend most of their time cleaning data, I dedicated a significant part of this project to data prep. In this step, I standardized text-case variances and stripped out corrupt characters like currency signs so I could safely cast fields into appropriate data types:
 
 ```sql
--- Standardizing multi-format naming variants into unified categorical entities
+-- Standardizing multi-format naming variants into clean, unified names
 UPDATE DUMMY
 SET SUPPLIERNAME = LTRIM(RTRIM(
     CASE
@@ -72,19 +67,17 @@ SET SUPPLIERNAME = LTRIM(RTRIM(
     END
 ));
 
--- Stripping non-numeric currency flags (\$) and text padding to execute clean numeric casting
+-- Stripping non-numeric characters (\$ and commas) to execute a safe numeric cast
 SELECT INITIALQUANTITY,
        CAST(CAST(REPLACE(REPLACE(REPLACE(INITIALQUANTITY, '\$', ''), ',', ''), ' ', '') AS FLOAT) AS DECIMAL(10,2)) 
 FROM ABC_10000 
 WHERE InitialQuantity NOT LIKE '%[^0-9.]%';
 ```
 
-### 2. Multi-Table Relational Migrations
-This script handles the migration of complex dimensional records while generating unique IDs and mapping business entities securely using robust multi-table operations:
+### 2. Multi-Table Relational Migration
+During the actual migration, I wrote queries to transform flat rows into relational structures. I used Common Table Expressions (CTEs) to clean up inconsistent units of measure (like mapping `KGS` and `Kilogram` down to a single `KG` standard) on the fly while generating foreign key relationships:
 
 ```sql
--- Complex Common Table Expression (CTE) used to cast data types and standardize 
--- non-uniform units of measure ('KGS', 'Kilogram' -> 'KG') during the migration pass
 WITH CleanedInventory_CTE AS (
     SELECT 
         LEFT(RAWMATERIALBATCHID, 7) AS RAWMATERIALBATCHID,
@@ -107,25 +100,27 @@ INNER JOIN SUPPLIERS AS S ON S.SUPPLIERNAME = T.SUPPLIERNAME
 INNER JOIN RAWMATERIALS AS M ON M.MATERIALGRADE = T.MATERIALGRADE AND M.MATERIALNAME = T.MATERIALNAME;
 ```
 
-### 3. Business Automation & Integrity Rules (Triggers)
-To protect operations without requiring external software code, the database leverages automated transactional rules directly on table edits:
+### 3. Business Automation (Database Triggers)
+To protect data integrity moving forward, I coded automated business rules directly into the database using T-SQL triggers. This ensures that the system handles errors automatically without relying on external software frontends:
 
-* **The Anti-Double Booking Engine (`TRG_CHECKMACHINESCHEDULE`)**: Dynamically intercepts incoming production orders and checks active timelines. If a machine is assigned to overlapping production timelines, it halts execution and issues a rolling transaction rejection.
-* **The Failsafe Inventory Enforcer (`TRG_UPDATEMATERIALREMAINING`)**: Automatically recalculates remaining inventory quantities upon usage updates. If any material volume breaks below 0, it aborts the process to prevent data corruption.
-* **Proactive Supply Chain Alerts (`TRG_LOWSTOCK`)**: Instantly logs a new procurement requisition entry into the tracking table if a material stock level drops below a 500-unit threshold.
+* **Anti-Double Booking (`TRG_CHECKMACHINESCHEDULE`)**: This trigger automatically screens incoming production orders against active machine timelines. If it detects an overlapping schedule on the same machine, it instantly blocks the entry and rolls back the transaction.
+* **Failsafe Inventory Tracker (`TRG_UPDATEMATERIALREMAINING`)**: Every time material is used, this trigger automatically updates the remaining inventory. If stock levels ever drop below zero, it aborts the entry to prevent negative inventory bugs.
+* **Proactive Supply Chain Alerts (`TRG_LOWSTOCK`)**: I designed this trigger to act as an automated monitoring tool. The moment an active batch drops below 500 units, it automatically inserts a reorder alert entry into a logistics ticket log.
 
 ---
 
-## 📈 Business Insights Enabled by This Schema
-By centralizing data, this database allows data analysts to answer critical operational questions in sub-seconds using analytical SQL queries:
-1. **Overall Equipment Effectiveness (OEE):** Tracks machine availability by evaluating production time durations against downtime entries from logs.
-2. **Supplier Quality Scorecards:** Evaluates defect trends per vendor by joining `QUALITYCHECKS` data directly back to initial batch suppliers.
-3. **Inventory Burn Rates:** Aggregates rolling inventory requirements over historical run dates to streamline procurement timelines.
+## 📈 Analytical Business Insights
+By structuring the data this way, I created a single source of truth that allows data analysts to answer critical operational questions instantly with sub-second queries:
+1. **Overall Equipment Effectiveness (OEE):** Compares production durations directly against logged machine downtime to analyze asset availability.
+2. **Supplier Quality Scorecards:** Joins inspection results back to batch vendors to rank suppliers by their real-world defect rates.
+3. **Inventory Burn Rates:** Aggregates material consumption trends across historical production runs to optimize reorder thresholds.
 
 ---
 
 ## 🛠️ Technical Tool Stack
 * **Database Engine:** Microsoft SQL Server (T-SQL)
-* **IDE / Tooling:** SQL Server Management Studio (SSMS)
+* **IDE / Workspace:** SQL Server Management Studio (SSMS)
 * **Modeling Tool:** Microsoft SQL Server Database Diagram Designer
+
+
   
